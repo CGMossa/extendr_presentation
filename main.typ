@@ -1,6 +1,7 @@
-#import "@preview/polylux:0.3.1": *
+// #import "@preview/polylux:0.3.1": *
+#import "polylux/polylux.typ": *
 
-#import themes.metropolis: *
+#import themes.minimetropolis: *
 #set math.text(font: "Fira Sans",
   weight: "medium",
   ligatures: true)
@@ -39,17 +40,82 @@
 ]
   
 #[
-  #set par(justify: true)
   #set text(size: 45pt)
   #title-slide(
     title: [`extendR`],
     subtitle: [Seamless integration between R and Rust],
-    author: [Mossa Merhi Reimert, and others]
+    author: [
+      #set text(size: 23pt)
+      // #set text(justify: false)
+      #set par(justify: false)
+      Mossa Merhi Reimert, and others
+      // "andy-thomason <andy@andythomason.com>",
+      // "Thomas Down",
+      // "Mossa Merhi Reimert <mossa@sund.ku.dk>",
+      // "Claus O. Wilke <wilke@austin.utexas.edu>",
+      // "Hiroaki Yutani",
+      // "Ilia A. Kosenkov <ilia.kosenkov@outlook.com>",
+      // "Michael Milton <michael.r.milton@gmail.com>",
+      #box([
+        #set text(size: 12pt)
+        _Others_: Andy Thomason, Thomas Down, Claus O. Wilke, Hiroaki Yutani, Ilia A. Kosenkov, Michael Milton, 
+      ])
+    ]
   )
+]
+
+#slide(title: [Who uses R??])[
+  #quote([R is a _free_ software environment for _statistical_ computing and graphics.]) -- #link("https://www.r-project.org/", "r-project.org").
+
+  #pause
+
+  - R is an interpreted language written in C.
+  
+  - R is the successor of S
+
+  - Functional? Object-oriented? Imperative? 
+
+  // Multi-paradigm? Robust? Stable? Etc.
+]
+
+#slide(
+  title: [I'm Mossa.]
+)[
+  // #set align()
+  // Formula training in (mathematical) Statistics,
+  // (not )
+  PhD Student in Veterinary Epidemiology, 
+ 
+  MSc. in (mathematical) Statistics
+
+  Interests: Simulator-based inference, Statistical inference
+
+  Thesis is on Agent-based modelling of African Swine Fever between wild boars and domestic pigs
+
+
+// #v(3em)
+
+#grid(rows: 1, columns: 3,
+  column-gutter: 3.5em,
+  v(1.4em),
+// #image("media/image7.png", width: 3em)
+  grid(
+    columns: 3, 
+    image("media/image11.png", height: 3em),
+    [ `<==>` ],
+    image("media/image6.png", height: 3em)
+  ),
+  box(fill: red, height: 1.1em, clip: true, stroke: black)[
+    DEADLINE: March 2024
+  ]
+)
+  Supervisors: Matt Denwood, 	Maya Grussmann	Anette Boklund
 ]
 
 #slide(title: [Why not R?])[
   R has many shortcomings
+  // But in the context of disease modelling, 
+  // 
 
   - Resource management (especially an issue when adding concurrency)
   
