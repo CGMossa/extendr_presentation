@@ -1,7 +1,5 @@
 # extendR slides
 
-
-
 ## Maintainer guide
 
 ### Build guide
