@@ -19,6 +19,9 @@
 // #set strong(delta: 100)
 #show link: set text(fill: fuchsia)
 // #set par(justify: true)
+#set footnote.entry(gap: 9pt, clearance: 0pt)
+#show footnote.entry: set text(size: 15pt)
+
 
 #show raw: set text(
   font: "Cascadia Code",
@@ -113,70 +116,134 @@
 ]
 
 #slide(title: [Why not R?])[
-  R has many shortcomings
+  R has many shortcomings, but for _us_.. 
   // But in the context of disease modelling, 
-  // 
 
-  - Resource management (especially an issue when adding concurrency)
-  
+  - Resource management; //space efficient programs are impossible
+
   - Concurrency support: Logging a model-run, should happen irrespective of the model calculations.
-  
+
+  // Vectorised operations are great, but it doesn't vectorise custom
+  // written operations, like monte carlo-like procedures,  
   - No auto-vectorisation, even summing flat numbers is difficult, see #link("https://www.wikiwand.com/en/Kahan_summation_algorithm", [Kahan Summation Algorithm])
+
+  - Performance critical code is a multi-faceted challenge...
+  // Clarity suffers at the alter of performance.
+  // It is not unusual in R-circles to suggest things, that will
+  // increase the performance, to the detrement of clarity, modularity,
+  // to the extent that it obfuscates
 ]
 
-#slide(title: [Why Rust?])[
-  - Compiled language like C/C++ with similar performance
-  
-  - Declarative memory management, unlike C/C++
-  - No exceptions
-  - No object-oriented programming, dispatch based
+#slide(title: [Worry not, R is meant to be extended])[
+  #set pad(right: 2em)
 
-  References:
+  - Official documentation for extending R (#link("https://cran.r-project.org/doc/manuals/R-exts.html", "R-exts")) supporting `C/C++/Fortran`
+  
+    // examples of automatically generate bindings from one language,
+    // to R
+
+  - Rcpp/cpp11, rJava, reticulate (python), RJulia
+
+  R provides a C-API#footnote([R lingo: C-facilities]) that can be used as an ABI
+
+]
+
+
+#slide(title: [Why Rust?])[
+  - Compiled language like C/C++ with comparable performance
+  
+  - Declarative memory management (no pointers!)
+  
+  - No exceptions (#r(`tryCatch`) / #r(`on.exit`))
+  
+  - No object-oriented programming, trait-based dispatch
+  
+  - No garbage collector / heavy runtime
+
+  Rust's sales pitch is: Safety & security critical code for systems programming. Or "if it compiles, it works"
+
+  // References:
   // #link("https://github.com/thoughtworks/epirust/wiki/Motivation-Behind-EpiRust", [Motivation Behind `EpiRust`]), by @kshirsagarEpiRustFrameworkLargescale2021, evaluating rust for ABMs
   // @antelmiEvaluatingRustProgramming2019; Lange group uses Rust for their ASF wild boar model
 ]
 
-#slide()[
-  // There are several frameworks for using agent-based modelling: 
-  // @correaRustagentbasedmodels2023,
-  // @KrABMaga2023,
-  // @kshirsagarEpiRustFrameworkLargescale2021
+// #slide()[
+//   // There are several frameworks for using agent-based modelling: 
+//   // @correaRustagentbasedmodels2023,
+//   // @KrABMaga2023,
+//   // @kshirsagarEpiRustFrameworkLargescale2021
 
-  The goal isn't to make general-purpose framework.
+//   The goal isn't to make general-purpose framework.
 
-  Instead, custom-built models in Rust, and have the ability to amend / interact with these in R...
+//   Instead, custom-built models in Rust, and have the ability to amend / interact with these in R...
 
-  Hence, `extendR`!
+//   Hence, `extendR`!
   
+// ]
+
+// #slide(title: [Why not our R models?])[
+
+//   They are convoluted, by design, as to make them work with R's computational constraints.
+//   // A "simple" construction will not be fast, i.e. using lists, and for-loops
+//   // An idea that comes in is using matrices / arrays, that
+//   // entails making all operations in that way
+//   // which  makes the model unreadable, as the operations performed are non-standard to R, (like shuffling)
+  
+//   They are still slow. 
+  
+//   - No ABC / SMC procedure can be built on top (to estimate epidemiological parameters on the available  data)
+  
+//   - No sufficiently complex mechanism can be implemented in them.
+//   // Advanced dispersal for WB gets too complicated
+//   // - Running the WB Model together with the DPP Model wasn't going to work anyways
+// ]
+
+
+#slide(title: [Use case])[
+  Setting: Logging of a complex simulator.
+  
+  Solution:
+
+```R
+write.table(file = logging_file_name['state_name',
+  current_state, append = TRUE, col.names = FALSE)
+```
+ (1) Initialize the table with #r(`col.names = TRUE`), (2) ensure that state can flattened, (3) ensure that the file matches the state being processed
+
 ]
 
-#slide(title: [Why not our R models?])[
+#slide(title: [Use case ])[
 
-  They are convoluted, by design, as to make them work with R's computational constraints.
-  // A "simple" construction will not be fast, i.e. using lists, and for-loops
-  // An idea that comes in is using matrices / arrays, that
-  // entails making all operations in that way
-  // which  makes the model unreadable, as the operations performed are non-standard to R, (like shuffling)
+
+  - `if`-statement to determine whether to log (hot path)
+  #text(size: 0.8em)[ 
+    _Actual_: You could use #link("https://github.com/r-lib/debugme", "{debugme}"), and depend on `.onLoad`-behavior
+  ]
   
-  They are still slow. 
+  - Buffered IO operation even in the case of a crash
+
+  - _Serialisation of state_
+
+  - Logging in another thread // than main thread
+
+  All of this can be done in Rust, with less effort and more guarantees
   
-  - No ABC / SMC procedure can be built on top (to estimate epidemiological parameters on the available  data)
-  
-  - No sufficiently complex mechanism can be implemented in them.
-  // Advanced dispersal for WB gets too complicated
-  // - Running the WB Model together with the DPP Model wasn't going to work anyways
+  #pause
+
+  (skipping this unfortunately)
 ]
 
 #slide(title: [What is `extendR`?])[
   
   `extendR` is composed of 3 parts:
   
-  - System bindings through `libR-sys` \[Rust / requires C\]
+  - System bindings through `libR-sys` \ \[Rust / requires C\]
   // Exposing R's C-API / C-facilities
   
-  - `extendr` that contains an API, procedural macros, and engine. \[Rust\]
+  - `extendr` that contains an API, procedural macros, and engine. \ \[Rust\]
   
-  - `rextendr` which is an R-package to use Rust, publish to CRAN, etc.
+  - `rextendr` an r-package interface to extendr 
+    \[R\]
 
   See #link("https://extendr.github.io/").
 ]
@@ -187,24 +254,18 @@
   usethis::create_package("vetEpiRust")
   rextendr::use_extendr()
   ```
+
+  Rust project is in `./vetEpiRust/src/rust/`
+
+  #pause 
+
   Daily tool: #r("rextendr::document()").
 
-  Rust project is in `vetEpiRust/src/rust/`.
+  #pause
 
   `rextendr` also have `rust_source` and `rust_function` equivalent to `Rcpp`'s functions..
 ]
 
-#slide(title: [ExtendR features])[
-  - Conversions between R and Rust types.
-  
-  - Interfacing from R into Rust, by generating wrappers / `.Call`
-  
-  - Interfacing from Rust to R, by emulating R inside of Rust, and accessing R's C-API single-threaded
-  
-  - Running R inside of Rust 
-  
-  - Publishing Rust-powered R-packages on CRAN
-]
 
 #slide(title: [`extendr`: Example])[
   ```rs
@@ -216,8 +277,24 @@ fn hello_world() -> &'static str {
     "Hello world!"
 }
   ```
+
+  #pause
+
+  `#[extendr]` exports the function to the surrounding r-package
+  
+  `@export` exports the function to importing r-packages
 ]
-#slide(title: [`extendr`: Conversions])[
+
+#slide(title: [Concludes the sales pitch for extendR!])[
+
+  That's it! 
+
+  #pause 
+
+  Rest of the talk is on extendR internals.
+]
+
+#slide(title: [R internals first..])[
   #set text(size: 20pt)
   ```r
 > hello_world()
@@ -233,6 +310,28 @@ fn hello_world() -> &'static str {
   @0x000001f3747398c8 09 CHARSXP g1c2 [MARK,REF(6),gp=0x60,ATT] [ASCII] [cached] "Hello world!"
   ```
 ]
+
+
+#slide(title: [String interning])[
+  Strings in R are interned, i.e. they are static!
+
+  A string-vector is a vector of strings
+
+  // String-vectors are not interned!
+]
+
+// #slide(title: [ExtendR features])[
+//   - Conversions between R and Rust types.
+  
+//   - Interfacing from R into Rust, by generating wrappers / `.Call`
+  
+//   - Interfacing from Rust to R, by emulating R inside of Rust, and accessing R's C-API single-threaded
+  
+//   - Running R inside of Rust 
+  
+//   - Publishing Rust-powered R-packages on CRAN
+// ]
+
 
 #slide(title: [`extendr`: Conversions])[
   There are only #r("integer()") / #rust("i32") and #r("numeric()") / #rust("f64").
@@ -378,6 +477,27 @@ _]
     }
   ```
   `mod` defines current module, `use` exports another module, `fn` exports a function, `impl` exports a Rust `struct`.
+]
+
+#slide(title: [Call for Participation])[
+
+
+  - Add instrumentation to our current r-object gc/protection
+
+  - Integrate with #link("https://docs.r-wasm.org/webr/latest/", "webR")
+
+  - #strike([Make `extendR` thread-safe], stroke: gray) write multithreading tests
+
+  - Integrate S7#footnote([
+    #link("https://cran.r-project.org/web/packages/S7/vignettes/S7.html", "Official S7 documentation") and
+    #link("https://www.jumpingrivers.com/blog/r7-oop-object-oriented-programming-r/", "What is S7? A New OOP System for R", )])
+  
+  - Proc-macro for custom ALTREP#footnote([
+    #link("https://github.com/ALTREP-examples", "ALTREP examples")
+  ])
+
+  #pause
+  We have a (friendly!) Discord!
 ]
 
 
