@@ -67,7 +67,7 @@
   )
 ]
 
-#slide(title: [Who uses R??])[
+#slide(title: [What / Who uses R??])[
   #quote([R is a _free_ software environment for _statistical_ computing and graphics.]) -- #link("https://www.r-project.org/", "r-project.org").
 
   #pause
@@ -118,8 +118,9 @@
 #slide(title: [Why not R?])[
   R has many shortcomings, but for _us_.. 
   // But in the context of disease modelling, 
-
-  - Resource management; //space efficient programs are impossible
+  
+  //space efficient programs are impossible
+  - Resource management; 
 
   - Concurrency support: Logging a model-run, should happen irrespective of the model calculations.
 
@@ -142,7 +143,8 @@
     // examples of automatically generate bindings from one language,
     // to R
 
-  - Rcpp/cpp11, rJava, reticulate (python), RJulia
+  - Rcpp, cpp11, rJava, reticulate (python), RJulia, 
+  // #link("https://cran.r-project.org/web/packages/Rcsdp/index.html", "Rcsdp")
 
   R provides a C-API#footnote([R lingo: C-facilities]) that can be used as an ABI
 
@@ -200,19 +202,19 @@
 
 
 #slide(title: [Use case])[
-  Setting: Logging of a complex simulator.
+  Problem: Logging some state of a complex simulator.
   
   Solution:
 
 ```R
-write.table(file = logging_file_name['state_name',
+write.table(file = logging_file_name[['state_name']],
   current_state, append = TRUE, col.names = FALSE)
 ```
  (1) Initialize the table with #r(`col.names = TRUE`), (2) ensure that state can flattened, (3) ensure that the file matches the state being processed
-
 ]
 
 #slide(title: [Use case ])[
+
 
 
   - `if`-statement to determine whether to log (hot path)
@@ -235,20 +237,24 @@ write.table(file = logging_file_name['state_name',
 
 #slide(title: [What is `extendR`?])[
   
-  `extendR` is composed of 3 parts:
+  #align(center)[
+    `extendR` is composed of 3 parts
+  ]
   
-  - System bindings through `libR-sys` \ \[Rust / requires C\]
+  \[Rust / requires C\] \
+  System bindings through `libR-sys`
   // Exposing R's C-API / C-facilities
   
-  - `extendr` that contains an API, procedural macros, and engine. \ \[Rust\]
+  \[Rust\] \
+  `extendr` that contains an API, procedural macros, and engine.
   
-  - `rextendr` an r-package interface to extendr 
-    \[R\]
+  \[R\] \
+  `rextendr` an r-package interface to extendr 
 
   See #link("https://extendr.github.io/").
 ]
 
-#slide(title: [Getting started with `extendr`])[
+#slide(title: [Getting started with `extendR`])[
   ```r
   remotes::install_github("extendr/rextendr")
   usethis::create_package("vetEpiRust")
@@ -268,14 +274,17 @@ write.table(file = logging_file_name['state_name',
 
 
 #slide(title: [`extendr`: Example])[
+
+  // explain rust syntax, mention lifetimes, doc-comment, last
+  // expressions has an implicit return
+
   ```rs
-  
-/// Return string `"Hello world!"` to R.
-/// @export
-#[extendr]
-fn hello_world() -> &'static str {
-    "Hello world!"
-}
+  /// Return string `"Hello world!"` to R.
+  /// @export
+  #[extendr]
+  fn hello_world() -> &'static str {
+      "Hello world!"
+  }
   ```
 
   #pause
@@ -283,19 +292,21 @@ fn hello_world() -> &'static str {
   `#[extendr]` exports the function to the surrounding r-package
   
   `@export` exports the function to importing r-packages
+  // that updates the `NAMESPACE`-file when invoking `rextendr::document()`.
+
 ]
 
 #slide(title: [Concludes the sales pitch for extendR!])[
 
-  That's it! 
+  That's it!
 
   #pause 
 
   Rest of the talk is on extendR internals.
 ]
 
-#slide(title: [R internals first..])[
-  #set text(size: 20pt)
+#slide(title: [Let's inspect the R's internals...])[
+  // #set text(size: 20pt)
   ```r
 > hello_world()
 [1] "Hello world!"
@@ -311,13 +322,22 @@ fn hello_world() -> &'static str {
   ```
 ]
 
-
 #slide(title: [String interning])[
+  // #set align(horizon)
   Strings in R are interned, i.e. they are static!
+
+  `=>` same address on the two strings!
+
+  #pause
+  #v(1em)
 
   A string-vector is a vector of strings
 
-  // String-vectors are not interned!
+  `=>` String-vectors are not interned!
+
+  `==>` Different pointers
+  // Therefore the element in the string-type is the same
+  // data, but not the string vector!
 ]
 
 // #slide(title: [ExtendR features])[
@@ -333,45 +353,193 @@ fn hello_world() -> &'static str {
 // ]
 
 
-#slide(title: [`extendr`: Conversions])[
-  There are only #r("integer()") / #rust("i32") and #r("numeric()") / #rust("f64").
+// #slide(title: [`extendr`: Conversions])[
+//   There are only #r("integer()") / #rust("i32") and #r("numeric()") / #rust("f64").
 
-  For R to use a value, it needs to be allocated by R.
+//   For R to use a value, it needs to be allocated by R.
   
-  For Rust to use a value, it can be allocated in either.
+//   For Rust to use a value, it can be allocated in either.
 
-  *But R's API is single-threaded.*
-]
+//   *But R's API is single-threaded.*
+// ]
 
-#slide(title: [`extendr` allocations])[
-  Currently, `extendr` protects everything it allocates via R's C-API.
+// #slide(title: [`extendr` allocations])[
+//   Currently, `extendr` protects everything it allocates via R's C-API.
 
-  Thus, `extendr` protects things that don't need protection.
+//   Thus, `extendr` protects things that don't need protection.
 
-  `R` supports local protection mechanism, which are efficient, and global protection mechanism, which are slower.
+//   `R` supports local protection mechanism, which are efficient, and global protection mechanism, which are slower.
 
-  ExtendR provides `Logicals`, `Integers`, `Doubles`, etc.
-  and we can access them as native Rust slices, i.e. `&[T]` / `&mut [T]`. 
-]
+//   ExtendR provides `Logicals`, `Integers`, `Doubles`, etc.
+//   and we can access them as native Rust slices, i.e. `&[T]` / `&mut [T]`. 
+// ]
 
-#slide(title: [`extendr`'s protection / `ownership`-module])[
-  Currently, `extendr` treats `SEXP`s as Reference Counted variables.
+// #slide(title: [`extendr`'s protection / `ownership`-module])[
+//   Currently, `extendr` treats `SEXP`s as Reference Counted variables.
 
-  My proposal is to move into #rust("Box<_>") / #raw(lang:"c++", "std::unique_ptr") way of thinking.
+//   My proposal is to move into #rust("Box<_>") / #raw(lang:"c++", "std::unique_ptr") way of thinking.
   
+// ]
+
+#slide(title: [Overview!])[
+  1. Call a C-function from R.
+
+  2. Call a Rust-function from C.
+
+  #pause
+
+  Load the library (`.so`/`.dll`) in R, using `dyn.load("shlib_file")`. 
+  // .so in unix and dll in windows
+
+  Then:
+  #pad(left: 1em)[
+  ```R
+  // Help: .Call(.NAME, ..., PACKAGE)
+  return_value <- .Call("c_function_name", args)
+  ```
+  ]
+
 ]
 
-#slide(title: [Currently, `Robj` is...])[
+#slide(title: [Overview])[
+  A C-function in Rust:
+
   ```rs
-  pub struct Robj {
-      inner: SEXP,
+  #[no_mangle]
+  pub extern "C" fn c_function_name() {
+    rust_function_name()
   }
   ```
-  Creating `Robj` incurs a registration in `ownership-module`, encurs a registration, not an increase in RC.
-  
+
+  #pause
+
+  What about the data??
 ]
 
-#slide(title: [Proposal])[
+#slide(title: [Overview])[
+  In R:
+  - Fundamental types: #r(`integer()`) / #rust(`i32`) and #r(`numeric()`) / #rust("f64")
+
+  - `logical()` is a derivative of #rust("i32")
+
+  // - Strings are complicated
+  #pause
+
+  In R's C-API:
+  - Everything in R is a pointer-type called `SEXP`.
+
+  - R uses integers to indiciate types (C-style)
+
+  - e.g. `list()` is a vector of `SEXP`s.
+
+]
+
+
+#slide(title: [Overview])[
+  A C-function in Rust:
+
+  ```rs
+  #[no_mangle]
+  pub extern "C" fn c_function_name(arg1: SEXP, arg2: SEXP) -> SEXP {
+    // convert arg1, arg2 from `SEXP`s to concrete types
+    let rust_return_value = rust_function_name(arg1, arg2);
+    let result = // same here..
+    result
+  }
+  ```
+]
+
+#slide(title: [Requirements for the abstractions])[
+
+  Goal: Adapt the C-style API to a idiomatic rust API
+
+  - Define marshalling between R and Rust...
+
+  i.e. go from an r-type to a rust-type in a zero-cost manner
+
+  - Use R's GC protection mechanisms 
+
+  // but don't annoy the user about this.
+
+  #pause
+
+  Minimal definition:
+
+  #pad(left: 1em)[
+    ```rs
+    pub struct Robj {
+        inner: SEXP,
+    }
+    ```
+  ]
+  // can't include anything else, because then we break the seamless conversion from a pointer to a slice..
+
+  // Creating `Robj` incurs a registration in `ownership-module`, encurs a registration, not an increase in RC.
+]
+
+#slide(title: [Slices are vectors?])[
+
+  C-style `(ptr, len)` is represented as a slice in Rust #rust(`&[T]`) / #rust(`&mut [T]`).
+
+  // A rust pointer is either #rust(`*const T`) or #rust(`*mut T`)
+  // ... but this distinction is lost on R's C-api
+
+  #pause
+
+  `=>` `Robj` can only contain the pointer then!
+  
+  Rust conversion:
+  ```rs
+  pub const unsafe 
+    fn from_raw_parts<'a, T>(data: *const T, len: usize) -> &'a [T]
+  ```
+
+  // it is here where you define all the specific conversions adopted
+
+  // also what about owned vectors?
+
+  #pause
+
+  Unprotect R-data (owned by Rust), once Rust is done with them
+
+  `=>` Add a `Drop`-mechanism to `Robj`
+]
+
+#slide(title: [Is this accurate?])[
+  R's protection mechanism are specific
+
+  - You allocate it, you protect it
+    - Returning to R means that _R now protects it_
+
+  - A protected _thing_ protects everything it contains
+
+  There is a stack-based fast protection mechanism in R...
+
+
+  But it has a vaguely undocumented limit of 10k-calls or so
+
+  `=>` Rust has to know about the protection
+  // There is an efficient protection mechanism to use in case of
+  // data intensive 
+]
+
+#slide(title: [Strategies? [Audience question]])[
+
+  As an `extendR` contributor, \ 
+  #h(1em) you'll have to uncover what strategy works:
+
+  - Amend `Robj` with protection status?
+
+  - Use an `enum` / `union` instead to represent `Robj`?
+
+  - Amend the pointer `SEXP` with the protection information?
+
+  
+  Any ideas from the audience?
+
+]
+
+#slide(title: [Proposal: the `enum`])[
   ```rs
   pub enum Robj {
     /// Protected by R, or a symbol
@@ -383,19 +551,40 @@ fn hello_world() -> &'static str {
 }
   ```
 
+  // A permanent is like the internet strings, should we do string comparison or just look up the pointer? what is faster?
+  
+  // We can have one result that is protected, and if we need
+  // to make micro protections 
+
   More on this on #link("https://github.com/extendr/extendr/issues/608", "#608") on GitHub...
 ]
 
-#slide(title: [Why is this an issue?])[
-  - Allocating large vectors requires that we protect / unprotect locally. 
-  
-    Using `PROTECT` / `UNPROTECT` is not possible, because there is an arbitrary limit of #sym.approx 10k on `PROTECT`-calls.
 
-  - Benchmarks against `{Rcpp}`...
+// #slide(title: [Why is this an issue?])[
+//   - Allocating large vectors requires that we protect / unprotect locally. 
   
+//     Using `PROTECT` / `UNPROTECT` is not possible, because there is an arbitrary limit of #sym.approx 10k on `PROTECT`-calls.
+
+//   - Benchmarks against `{Rcpp}`...
+  
+// ]
+
+#slide(title: [Another topic: Embedding Rust types in R])[
+  Coarsing a granular rust-data to R is very limited
+
+  How about embedding rust data `T` in R?
+
+  // collapsing a granular Rust object to R might not be beneficial
+  // if that structure is needed for further processing
+  
+  // Thus it should have parts where the rust code interacts with R data
+  // to have a state that is consumable by R
+
+  // See 
+  // #link("https://github.com/gmbecker/SearchTrees", `{searchTrees}`).
 ]
 
-#slide(title: [Vision: Use R-data and Rust-data in unison!])[
+#slide(title: [Embedding `T` in R])[
   Embedding Rust data in R is done through 
   #rust(`ExternalPtr<T>`)#footnote(link("https://cran.r-project.org/doc/manuals/R-exts.html#External-pointers-and-weak-references", [External pointers and Weak references in R-exts.]))
 
@@ -410,7 +599,7 @@ fn hello_world() -> &'static str {
   
 ]
 
-#slide(title: [Vision])[
+#slide(title: [Vision / Today])[
   #side-by-side(
     [
     ```rust
@@ -441,13 +630,54 @@ fn hello_world() -> &'static str {
   // Register `r_data` in `prot`, and respect `pub`-status.
 ]
 
-#slide(title: [Vision])[
-  This enables composing R and Rust function, because both can interact with each other.
+#slide(title: [Next steps])[ 
+  Writing self-protected types
 
-  \ \
+  Enable S4/RC/R6/S7 objects to use the above
+]
 
-_  Prerequisites for this: Emulating R-data in Rust, interfacing without reallocation, generation of wrappers..
-_]
+// #slide(title: [Vision])[
+//   This enables composing R and Rust function, because both can interact with each other.
+
+//   \ \
+
+// _  Prerequisites for this: Emulating R-data in Rust, interfacing without reallocation, generation of wrappers..
+// _]
+
+
+#slide(title: [Call for Participation])[
+
+  - Add instrumentation to our current r-object gc/protection
+
+  - Integrate with #link("https://docs.r-wasm.org/webr/latest/", "webR")
+
+  - #strike([Make `extendR` thread-safe], stroke: gray) write multithreading tests
+
+  - Integrate S7#footnote([
+    #link("https://cran.r-project.org/web/packages/S7/vignettes/S7.html", "Official S7 documentation") and
+    #link("https://www.jumpingrivers.com/blog/r7-oop-object-oriented-programming-r/", "What is S7? A New OOP System for R", )])
+  
+  - Proc-macro for custom ALTREP#footnote([
+    #link("https://github.com/ALTREP-examples", "ALTREP examples")
+  ])
+
+  #pause
+  We have a (friendly!) Discord!
+  #link("https://discord.gg/XAjKbDCW")
+]
+
+
+#slide(title: [References])[
+    #set text(size: 18pt)
+    
+    // #bibliography("assessment.bib", title: none)
+]
+
+
+#focus-slide([
+  #set text(size: 69pt)
+  _*Graveyard*_])
+
 
 #slide(title: [`extendr`'s R Exporting / Namespace])[
   An R-package is a `DESCRIPTION` + `NAMESPACE`.
@@ -479,38 +709,15 @@ _]
   `mod` defines current module, `use` exports another module, `fn` exports a function, `impl` exports a Rust `struct`.
 ]
 
-#slide(title: [Call for Participation])[
 
+#slide(title: [Challenges])[
 
-  - Add instrumentation to our current r-object gc/protection
-
-  - Integrate with #link("https://docs.r-wasm.org/webr/latest/", "webR")
-
-  - #strike([Make `extendR` thread-safe], stroke: gray) write multithreading tests
-
-  - Integrate S7#footnote([
-    #link("https://cran.r-project.org/web/packages/S7/vignettes/S7.html", "Official S7 documentation") and
-    #link("https://www.jumpingrivers.com/blog/r7-oop-object-oriented-programming-r/", "What is S7? A New OOP System for R", )])
-  
-  - Proc-macro for custom ALTREP#footnote([
-    #link("https://github.com/ALTREP-examples", "ALTREP examples")
-  ])
-
-  #pause
-  We have a (friendly!) Discord!
-]
-
-
-#slide(title: [References])[
-    #set text(size: 18pt)
+  Open problems:
     
-    // #bibliography("assessment.bib", title: none)
+    - Can `#[extendr]`-functions call other `#[extendr]`-functions?
+    
+  Esoteric API design: Embedding R abstractions in Rust
 ]
-
-
-#focus-slide([
-  #set text(size: 69pt)
-  _*Graveyard*_])
 
 
 #slide(title: [What's an ECS])[
